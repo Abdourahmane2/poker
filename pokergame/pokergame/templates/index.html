@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning Poker</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+    />
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #f0f0f0;
+        font-family: Arial, sans-serif;
+      }
+
+      h1 {
+        color: #333;
+        margin-bottom: 20px;
+      }
+
+      .container {
+        text-align: center;
+      }
+
+      input[type="text"],
+      select {
+        padding: 10px;
+        width: 200px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .player-container {
+        margin-bottom: 20px;
+      }
+
+      .error-message {
+        color: red;
+        margin-top: 10px;
+      }
+
+      .success-message {
+        color: green;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bienvenue au Planning Poker!</h1>
+
+    <div class="container">
+      <form action="{% url 'start_game' %}" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="player-container">
+            <label for="num_players">Nombre de joueurs :</label>
+            <select id="num_players" name="num_players" required>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+            </select>
+        </div>
+        <div class="player-container" id="player_names_container">
+            <label for="pseudo">Entrez les noms séparés par des virgules :</label>
+            <input type="text" name="player_names" placeholder="Entrez les noms" required />
+        </div>
+        <div class="player-container">
+            <label for="game_rules">Choisir les règles :</label>
+            <select id="game_rules" name="game_rules" required>
+                <option value="strict">Règles strictes (Unanimité)</option>
+                <option value="average">Moyenne</option>
+                <option value="median">Médiane</option>
+                <option value="absolute_majority">Majorité absolue</option>
+                <option value="relative_majority">Majorité relative</option>
+            </select>
+        </div>
+        <div class="player-container">
+            <label for="file">Téléchargez le fichier backlog (format JSON) :</label>
+            <input type="file" id="file" name="backlog" accept=".json" required />
+        </div>
+        <button type="submit">Commencer le jeu</button>
+    </form>
+    
+  </body>
+</html>

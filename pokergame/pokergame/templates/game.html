@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning Poker - Jeu</title>
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        padding: 20px;
+        background-color: #f3f4f6;
+        text-align: center;
+        color: #333;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #4a90e2;
+      }
+      .table-container,
+      .card-container {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      .card {
+        width: 60px;
+        height: 100px;
+        margin: 15px;
+        background-color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card:hover {
+        transform: translateY(-10px);
+        background-color: #f0f4f8;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      }
+      #but {
+        display: none;
+        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #4a90e2;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+      }
+      #but:hover {
+        background-color: #357abd;
+      }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  </head>
+  <body>
+    <h2>
+      Fonctionnalité en cours:
+      <span id="current-fonctionnalite"
+        >{{ current_fonctionnalite.titre }}</span
+      >
+    </h2>
+    <h3>
+      Tour de jeu pour <span id="current-joueur">{{ current_joueur.nom }}</span>
+    </h3>
+    <div class="card-container" id="card-container">
+      <div class="card" onclick="submitVote(1)">1</div>
+      <div class="card" onclick="submitVote(2)">2</div>
+      <div class="card" onclick="submitVote(3)">3</div>
+      <div class="card" onclick="submitVote(5)">5</div>
+      <div class="card" onclick="submitVote(8)">8</div>
+      <div class="card" onclick="submitVote(13)">13</div>
+      <div class="card" onclick="submitVote(21)">21</div>
+      <div class="card" onclick="submitVote('Café')">Café</div>
+    </div>
+    <h3>Votes:</h3>
+    <ul id="votes-list"></ul>
+    {% if cartes_bloquees %}
+    <script>
+      document.querySelectorAll(".card").forEach((card) => {
+        card.style.pointerEvents = "none";
+        card.style.opacity = "0.5";
+      });
+    </script>
+    {% endif %}
+    <script>
+      function submitVote(value) {
+        $.ajax({
+          type: "POST",
+          url: "{% url 'voter' %}",
+          data: {
+            button_value: value,
+            csrfmiddlewaretoken: "{{ csrf_token }}",
+          },
+          success: function (response) {
+            // Mettre à jour l'affichage des votes
+            $("#votes-list").empty();
+            response.votes.forEach(function (vote) {
+              $("#votes-list").append(
+                `<li>${vote.joueur} a voté : ${vote.valeur}</li>`
+              );
+            });
+            $("#current-joueur").text(response.current_joueur);
+            $("#current-fonctionnalite").text(response.current_fonctionnalite);
+
+            // Vérifier si les votes sont bloqués pour affichage
+            if (response.cartes_bloquees) {
+              document.querySelectorAll(".card").forEach((card) => {
+                card.style.pointerEvents = "none";
+                card.style.opacity = "0.5";
+              });
+              document.getElementById("but").style.display = "block";
+            }
+
+            // Afficher les résultats et vérifier l'unanimité
+          },
+          error: function (error) {
+            console.error("Erreur lors de l'envoi du vote", error);
+          },
+        });
+      }
+    </script>
+
+    <button id="but" onclick="afficher_vote()">Afficher les résultats</button>
+    <script>
+      function afficher_vote() {
+        // Vérifier et afficher les résultats actuels
+        const voteList = $("#votes-list li")
+          .map(function () {
+            return $(this).text();
+          })
+          .get();
+
+        alert("Résultats actuels des votes:\n" + voteList.join("\n"));
+      }
+    </script>
+  </body>
+</html>
