@@ -1,125 +1,170 @@
-from django.shortcuts import render  
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
-from .models import joueur, fonctionnalite, vote 
+from .models import joueur, fonctionnalite, vote
 import json
-
+from django.views.decorators.http import require_http_methods
 
 def index(request):
     return render(request, 'index.html')
 
-
 def start_game(request):
-    voter = vote.objects.all()
-    voter.delete() 
+    # Nettoyer les votes et les joueurs existants pour éviter la duplication
+    vote.objects.all().delete()  # Supprime tous les votes existants
+    joueur.objects.all().delete()  # Supprime tous les joueurs existants pour un nouveau jeu
+
     if request.method == 'POST':
-        # Récupération des noms de joueurs et création d'instances de modèle
+        # Récupération et nettoyage des noms des joueurs
         noms = request.POST.get('player_names').split(',')
         nom_joueurs = [name.strip() for name in noms]
 
-        # Création des objets 'joueur'
-    
-        joueurs = [joueur.objects.create(nom=name) for name in nom_joueurs]
+        # Création de nouveaux joueurs
+        joueurs = []
+        for name in nom_joueurs:
+            if not joueur.objects.filter(nom=name).exists():  # Vérifie si le joueur existe déjà
+                joueur_obj = joueur.objects.create(nom=name)
+                joueurs.append(joueur_obj)
 
-        # Gestion du fichier JSON (backlog)
+        # Traitement du fichier de backlog si fourni
         fichier = request.FILES.get('backlog')
         if fichier:
             file_content = fichier.read().decode('utf-8')
             backlog_data = json.loads(file_content)
-
-            # Création des objets 'fonctionnalité' dans la base de données
             for fonct in backlog_data:
-                if not fonctionnalite.objects.filter(id=fonct['id']).exists():
+                if not fonctionnalite.objects.filter(id=fonct['id']).exists():  # Vérifie l'unicité par id
                     fonctionnalite.objects.create(
                         id=fonct['id'],
                         titre=fonct['title'],
                         description=fonct['description']
                     )
 
+        # Initialisation de la session
+        request.session['joueurs'] = [j.id for j in joueurs]
+        request.session['current_joueur_index'] = 0
+        request.session['current_fonctionnalite_index'] = 0
 
-        # Stocker les joueurs et les fonctionnalités dans la session
-         
-        request.session['joueurs'] = [j.id for j in  joueurs]
-           #stocker lid des jouers
-
-        request.session['current_joueur_index'] = 0  #stoker lindex du jouer courant
-        request.session['current_fonctionnalite_index'] = 0  #stoker la fonctionnalite courante
-
-        # Rediriger vers la page de jeu avec les joueurs et les fonctionnalités
         return render(request, 'game.html', {
             'joueurs': joueurs,
             'fonctionnalites': fonctionnalite.objects.all(),
-            'current_joueur': joueurs[0],  # Afficher le premier joueur à voter
-            'current_fonctionnalite': fonctionnalite.objects.first()  # Première fonctionnalité
+            'current_joueur': joueurs[0] if joueurs else None,
+            'current_fonctionnalite': fonctionnalite.objects.first()
         })
-        
 
     return render(request, 'index.html')
 
+
+@require_http_methods(["GET", "POST"])
 def voter(request):
-    request.session['cartes_bloquees'] = False
-    
+    # Initialisation des variables pour éviter les UnboundLocalError
+    votes_data = []
+    bon = False
+
     if request.method == 'POST':
-        joueurs_ids = request.session.get('joueurs')
+        # Récupération des données nécessaires depuis la session
+        joueurs_ids = request.session.get('joueurs', [])
         current_joueur_index = request.session.get('current_joueur_index', 0)
         current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
 
-        # Obtenir le joueur et la fonctionnalité actuels 
-        current_joueur = joueur.objects.get(id=joueurs_ids[current_joueur_index])
-        current_fonctionnalite = fonctionnalite.objects.all()[current_fonctionnalite_index]
-
-        # Enregistrer le vote
+        # Récupération de la valeur du vote depuis la requête POST
         vote_valeur = request.POST.get('button_value')
-        son_vote = vote.objects.create(joueur=current_joueur, fonctionnalite=current_fonctionnalite, valeur=vote_valeur)
 
-        # Avancer au joueur suivant ou activer les votes
-        if current_joueur_index < len(joueurs_ids) - 1:
-            current_joueur_index += 1
+        # Validation des indices et récupération du joueur et de la fonctionnalité actuels
+        if joueurs_ids and current_joueur_index < len(joueurs_ids):
+            current_joueur = joueur.objects.get(id=joueurs_ids[current_joueur_index])
+            fonctionnalites = fonctionnalite.objects.all()
+
+            if current_fonctionnalite_index < len(fonctionnalites):
+                current_fonctionnalite = fonctionnalites[current_fonctionnalite_index]
+
+                # Création de l'enregistrement de vote
+                vote.objects.create(
+                    joueur=current_joueur,
+                    fonctionnalite=current_fonctionnalite,
+                    valeur=vote_valeur
+                )
+
+                # Récupération des votes pour cette fonctionnalité
+                votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
+
+                # Vérification si tous les joueurs ont voté pour cette fonctionnalité
+                if current_joueur_index == len(joueurs_ids) - 1:
+                    vote_values = list(votes.values_list('valeur', flat=True))
+
+                    # Vérification d'unanimité des votes
+                    bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
+
+                    # Gérer l'état des cartes (bloquées ou non)
+                    if not bon:
+                        request.session['cartes_bloquees'] = False  # Si les votes sont différents
+                    else:
+                        request.session['cartes_bloquees'] = True  # Bloquer les cartes si tous ont voté et c'est unanime
+                    
+                    # Réinitialiser l'index des joueurs
+                    current_joueur_index = 0  
+
+                else:
+                    # Passer au joueur suivant si ce n'est pas le dernier
+                    current_joueur_index += 1
+                    request.session['cartes_bloquees'] = True  
+
+                # Mettre à jour la session avec les nouveaux indices
+                request.session['current_joueur_index'] = current_joueur_index
+
+                # Préparer les données de votes pour l'interface
+                votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes]
+
+                # Retour Json avec les informations nécessaires
+                return JsonResponse({
+                    'message': f"Vote de {current_joueur.nom} enregistré.",
+                    'current_joueur': joueur.objects.get(id=joueurs_ids[current_joueur_index]).nom if joueurs_ids else "",
+                    'current_fonctionnalite': current_fonctionnalite.titre,
+                    'votes': votes_data,
+                    'cartes_bloquees': request.session.get('cartes_bloquees', False),
+                    'bon': bon  # Indicateur d'unanimité
+                })
+            else:
+                return JsonResponse({"error": "Fonctionnalité non trouvée ou index incorrect"}, status=400)
         else:
-            # Tous les joueurs ont voté, bloquer les cartes pour affichage des résultats
-            request.session['cartes_bloquees'] = True
-            current_joueur_index = 0
+            return JsonResponse({"error": "Joueur non trouvé ou index incorrect"}, status=400)
 
-        request.session['current_joueur_index'] = current_joueur_index
-
-        # Obtenez les votes pour la fonctionnalité actuelle et vérifiez l'unanimité
-        votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
-        valeurs = [v.valeur for v in votes]
-        unanimous = len(set(valeurs)) == 1
-
-        # Réponse JSON pour le front-end
-        return JsonResponse({
-            'message': f"Vote de {current_joueur.nom} enregistré.",
-            'current_joueur': joueur.objects.get(id=joueurs_ids[current_joueur_index]).nom,
-            'current_fonctionnalite': current_fonctionnalite.titre,
-            'votes': [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes],
-            'cartes_bloquees': request.session.get('cartes_bloquees'),
-            'unanimous': unanimous  # Ajout pour indiquer l'unanimité
-        })
-    
-    return JsonResponse({"error": "Invalid request"}, status=400)
-
-def compare_votes(request):
-    if request.method == 'GET':
+    elif request.method == 'GET':
+        joueurs_ids = request.session.get('joueurs', [])
         current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
-        current_fonctionnalite = fonctionnalite.objects.all()[current_fonctionnalite_index]
+        fonctionnalites = fonctionnalite.objects.all()
 
-        # Récupérer tous les votes pour la fonctionnalité en cours
-        votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
-        valeurs = [v.valeur for v in votes]
+        if current_fonctionnalite_index < len(fonctionnalites):
+            current_fonctionnalite = fonctionnalites[current_fonctionnalite_index]
+            votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
+            vote_values = list(votes.values_list('valeur', flat=True))
+            bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
 
-        # Vérifier l'unanimité
-        unanimous = len(set(valeurs)) == 1
+            # Préparer les données de votes pour l'affichage
+            votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes]
 
-        if unanimous:
-            # Si les votes sont identiques, passer à la fonctionnalité suivante
-            request.session['current_fonctionnalite_index'] += 1
+            # Retour Json avec les informations sur l'unanimité et les votes
+            return JsonResponse({
+                'votes': votes_data,
+                'bon': bon,
+                'current_fonctionnalite': current_fonctionnalite.titre,
+            })
         else:
-            # Sinon, on garde la même fonctionnalité
-            request.session['current_fonctionnalite_index'] = current_fonctionnalite_index
+            return JsonResponse({"error": "Aucune fonctionnalité en cours."}, status=400)
 
-        # Renvoyer le statut d’unanimité
+    # Requête non valide
+    return JsonResponse({"error": "Méthode non supportée"}, status=400)
+
+
+@require_http_methods(["POST"])
+def passer_a_la_suivante(request):
+    current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
+    fonctionnalites = fonctionnalite.objects.all()
+
+    if current_fonctionnalite_index < len(fonctionnalites) - 1:
+        request.session['current_fonctionnalite_index'] += 1
+        current_fonctionnalite = fonctionnalites[request.session['current_fonctionnalite_index']]
         return JsonResponse({
-            'unanimous': unanimous,
-            'message': "Les votes sont identiques, passage à la prochaine fonctionnalité." if unanimous else "Les votes diffèrent, revotez pour la même fonctionnalité."
+            "success": True,
+            "message": "Passage à la fonctionnalité suivante.",
+            'current_fonctionnalite': current_fonctionnalite.titre,
         })
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    else:
+        return JsonResponse({"error": "Aucune fonctionnalité suivante disponible."}, status=400)

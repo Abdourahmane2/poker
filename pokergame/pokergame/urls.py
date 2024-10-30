@@ -23,5 +23,7 @@ urlpatterns = [
     path("", views.index, name="index"),
     path('start_game' , views.start_game , name='start_game') ,
     path('voter/', views.voter, name='voter'),
-
+    path('passer_a_la_suivante/', views.passer_a_la_suivante, name='passer_a_la_suivante'),
+    
+    
 ]

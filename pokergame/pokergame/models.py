@@ -21,3 +21,4 @@ class vote(models.Model):
 
     def __str__(self):
         return f"{self.joueur.nom}, {self.valeur}, {self.fonctionnalite.titre}"
+

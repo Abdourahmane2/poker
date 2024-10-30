@@ -33,6 +33,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        transition: transform 0.2s, background-color 0.2s;
       }
       .card:hover {
         transform: translateY(-10px);
@@ -51,18 +52,19 @@
       #but:hover {
         background-color: #357abd;
       }
+      .hidden-value {
+        display: none;
+      }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   </head>
   <body>
     <h2>
       Fonctionnalité en cours:
-      <span id="current-fonctionnalite"
-        >{{ current_fonctionnalite.titre }}</span
-      >
+      <span id="current-fonctionnalite">{{ current_fonctionnalite }}</span>
     </h2>
     <h3>
-      Tour de jeu pour <span id="current-joueur">{{ current_joueur.nom }}</span>
+      Tour de jeu pour <span id="current-joueur">{{ current_joueur }}</span>
     </h3>
     <div class="card-container" id="card-container">
       <div class="card" onclick="submitVote(1)">1</div>
@@ -76,6 +78,7 @@
     </div>
     <h3>Votes:</h3>
     <ul id="votes-list"></ul>
+
     {% if cartes_bloquees %}
     <script>
       document.querySelectorAll(".card").forEach((card) => {
@@ -84,6 +87,7 @@
       });
     </script>
     {% endif %}
+
     <script>
       function submitVote(value) {
         $.ajax({
@@ -94,17 +98,16 @@
             csrfmiddlewaretoken: "{{ csrf_token }}",
           },
           success: function (response) {
-            // Mettre à jour l'affichage des votes
             $("#votes-list").empty();
             response.votes.forEach(function (vote) {
               $("#votes-list").append(
-                `<li>${vote.joueur} a voté : ${vote.valeur}</li>`
+                `<li>${vote.joueur} a voté : <span class="hidden-value">${vote.valeur}</span></li>`
               );
             });
             $("#current-joueur").text(response.current_joueur);
             $("#current-fonctionnalite").text(response.current_fonctionnalite);
 
-            // Vérifier si les votes sont bloqués pour affichage
+            // Bloquer les cartes si tous les joueurs ont voté
             if (response.cartes_bloquees) {
               document.querySelectorAll(".card").forEach((card) => {
                 card.style.pointerEvents = "none";
@@ -112,28 +115,95 @@
               });
               document.getElementById("but").style.display = "block";
             }
-
-            // Afficher les résultats et vérifier l'unanimité
           },
           error: function (error) {
             console.error("Erreur lors de l'envoi du vote", error);
           },
         });
       }
+
+      function afficher_vote() {
+        $.ajax({
+          type: "GET",
+          url: "{% url 'voter' %}",
+          success: function (response) {
+            if (response.bon) {
+              // Si tous les joueurs ont voté de la même manière
+              alert("Tous les joueurs ont voté de la même manière ! ");
+              document.getElementById("butt").style.display = "block";
+
+              // Débloque les cartes pour le tour suivant
+              document.querySelectorAll(".card").forEach((card) => {
+                card.style.pointerEvents = "auto";
+                card.style.opacity = "1";
+              });
+              //debloquzer le bouton
+
+              // Met à jour les informations de la prochaine fonctionnalité et du premier joueur
+              $("#current-joueur").text(response.current_joueur);
+              $("#current-fonctionnalite").text(
+                response.current_fonctionnalite
+              );
+
+              // Masquer le bouton "Afficher les résultats"
+              document.getElementById("but").style.display = "none";
+            } else {
+              // Si les votes ne sont pas unanimes, demander aux joueurs de revoter
+              alert("Les votes ne sont pas unanimes, veuillez revoter.");
+
+              // Débloquer les cartes pour permettre un nouveau vote sur la même fonctionnalité
+              document.querySelectorAll(".card").forEach((card) => {
+                card.style.pointerEvents = "auto";
+                card.style.opacity = "1";
+              });
+
+              // Mettre à jour l'interface pour rester sur la même fonctionnalité et joueur
+              $("#current-joueur").text(response.current_joueur);
+              $("#current-fonctionnalite").text(
+                response.current_fonctionnalite
+              );
+            }
+
+            console.log("Votes récupérés:", response.votes);
+
+            // Mettez à jour la liste des votes dans l'interface
+            $("#votes-list").empty();
+            response.votes.forEach(function (vote) {
+              $("#votes-list").append(
+                `<li>${vote.joueur} a voté : ${vote.valeur}</li>`
+              );
+            });
+          },
+          error: function (error) {
+            console.error("Erreur lors de l'affichage des votes", error);
+          },
+        });
+      }
+      function passerALaFonctionnaliteSuivante() {
+        $.ajax({
+          type: "POST",
+          url: "{% url 'passer_a_la_suivante' %}",
+          data: {
+            csrfmiddlewaretoken: "{{ csrf_token }}",
+          },
+          success: function (response) {
+            $("#current-fonctionnalite").text(response.current_fonctionnalite);
+          },
+          error: function (error) {
+            console.error("Erreur:", error);
+            alert("Erreur lors du passage à la fonctionnalité suivante.");
+          },
+        });
+      }
     </script>
 
     <button id="but" onclick="afficher_vote()">Afficher les résultats</button>
-    <script>
-      function afficher_vote() {
-        // Vérifier et afficher les résultats actuels
-        const voteList = $("#votes-list li")
-          .map(function () {
-            return $(this).text();
-          })
-          .get();
-
-        alert("Résultats actuels des votes:\n" + voteList.join("\n"));
-      }
-    </script>
+    <button
+      id="butt"
+      style="display: none"
+      onclick="passerALaFonctionnaliteSuivante()"
+    >
+      Passer à la fonctionnalité suivante
+    </button>
   </body>
 </html>
