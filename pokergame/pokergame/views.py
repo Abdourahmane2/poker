@@ -54,7 +54,7 @@ def start_game(request):
 
 @require_http_methods(["GET", "POST"])
 def voter(request):
-    # Initialisation des variables pour éviter les UnboundLocalError
+   
     votes_data = []
     bon = False
 
@@ -72,7 +72,8 @@ def voter(request):
             current_joueur = joueur.objects.get(id=joueurs_ids[current_joueur_index])
             fonctionnalites = fonctionnalite.objects.all()
 
-            if current_fonctionnalite_index < len(fonctionnalites):
+            if current_fonctionnalite_index < len(fonctionnalites)  :
+                request.session['fini'] = False
                 current_fonctionnalite = fonctionnalites[current_fonctionnalite_index]
 
                 # Création de l'enregistrement de vote
@@ -84,17 +85,20 @@ def voter(request):
 
                 # Récupération des votes pour cette fonctionnalité
                 votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
-
+                print(len(joueurs_ids))
                 # Vérification si tous les joueurs ont voté pour cette fonctionnalité
                 if current_joueur_index == len(joueurs_ids) - 1:
+                    fini = True
                     vote_values = list(votes.values_list('valeur', flat=True))
-
-                    # Vérification d'unanimité des votes
+                    request.session['cartes_bloquees'] = False
+                    # Vérification si les votes sont les meme
                     bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
 
-                    # Gérer l'état des cartes (bloquées ou non)
+                  
                     if not bon:
-                        request.session['cartes_bloquees'] = False  # Si les votes sont différents
+                        request.session['cartes_bloquees'] = True # Si les votes sont différents
+                        #si les votes ne sont pas bon on supprime les votes pour cette fonctionnalite
+                        vote.objects.filter(fonctionnalite = current_fonctionnalite).delete()
                     else:
                         request.session['cartes_bloquees'] = True  # Bloquer les cartes si tous ont voté et c'est unanime
                     
@@ -103,15 +107,16 @@ def voter(request):
 
                 else:
                     # Passer au joueur suivant si ce n'est pas le dernier
+                    print(current_joueur_index)
                     current_joueur_index += 1
-                    request.session['cartes_bloquees'] = True  
+                    request.session['cartes_bloquees'] = False 
 
                 # Mettre à jour la session avec les nouveaux indices
                 request.session['current_joueur_index'] = current_joueur_index
 
                 # Préparer les données de votes pour l'interface
                 votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes]
-
+               
                 # Retour Json avec les informations nécessaires
                 return JsonResponse({
                     'message': f"Vote de {current_joueur.nom} enregistré.",
@@ -119,10 +124,14 @@ def voter(request):
                     'current_fonctionnalite': current_fonctionnalite.titre,
                     'votes': votes_data,
                     'cartes_bloquees': request.session.get('cartes_bloquees', False),
-                    'bon': bon  # Indicateur d'unanimité
+                    'bon': bon  ,
+                                        
                 })
+                
             else:
-                return JsonResponse({"error": "Fonctionnalité non trouvée ou index incorrect"}, status=400)
+               
+                return JsonResponse({"error": "Fonctionnalité non trouvée ou index incorrect", 
+                                     })
         else:
             return JsonResponse({"error": "Joueur non trouvé ou index incorrect"}, status=400)
 
@@ -147,7 +156,9 @@ def voter(request):
                 'current_fonctionnalite': current_fonctionnalite.titre,
             })
         else:
-            return JsonResponse({"error": "Aucune fonctionnalité en cours."}, status=400)
+            
+            return JsonResponse({"error": "jeu termine"
+                                    })
 
     # Requête non valide
     return JsonResponse({"error": "Méthode non supportée"}, status=400)
@@ -158,13 +169,16 @@ def passer_a_la_suivante(request):
     current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
     fonctionnalites = fonctionnalite.objects.all()
 
-    if current_fonctionnalite_index < len(fonctionnalites) - 1:
+    if current_fonctionnalite_index < len(fonctionnalites)-1:
         request.session['current_fonctionnalite_index'] += 1
         current_fonctionnalite = fonctionnalites[request.session['current_fonctionnalite_index']]
         return JsonResponse({
             "success": True,
             "message": "Passage à la fonctionnalité suivante.",
             'current_fonctionnalite': current_fonctionnalite.titre,
+            'suivant'  :True
         })
     else:
-        return JsonResponse({"error": "Aucune fonctionnalité suivante disponible."}, status=400)
+        return JsonResponse(
+            { "suivant" : False}
+        )

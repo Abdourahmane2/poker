@@ -12,48 +12,64 @@
         text-align: center;
         color: #333;
       }
+
       h1,
       h2,
       h3 {
         color: #4a90e2;
+        margin-bottom: 15px;
       }
+
       .table-container,
       .card-container {
         display: flex;
         justify-content: center;
         flex-wrap: wrap;
+        gap: 15px;
         margin: 20px 0;
       }
+
       .card {
-        width: 60px;
+        width: 70px;
         height: 100px;
-        margin: 15px;
+        border-radius: 10px;
         background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.2s, background-color 0.2s;
+        font-size: 1.2em;
+        color: #4a90e2;
+        transition: transform 0.2s ease, box-shadow 0.3s ease;
       }
       .card:hover {
         transform: translateY(-10px);
         background-color: #f0f4f8;
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
       }
-      #but {
+
+      #but,
+      #butt {
         display: none;
         margin-top: 20px;
-        padding: 10px 20px;
+        padding: 12px 24px;
         background-color: #4a90e2;
         color: #fff;
         border: none;
+        border-radius: 8px;
+        font-size: 1em;
         cursor: pointer;
+        transition: background-color 0.2s;
       }
-      #but:hover {
+      #but:hover,
+      #butt:hover {
         background-color: #357abd;
       }
-      .hidden-value {
-        display: none;
+
+      .disabled-card {
+        pointer-events: none;
+        opacity: 0.6;
       }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -76,17 +92,11 @@
       <div class="card" onclick="submitVote(21)">21</div>
       <div class="card" onclick="submitVote('Café')">Café</div>
     </div>
-    <h3>Votes:</h3>
-    <ul id="votes-list"></ul>
 
-    {% if cartes_bloquees %}
-    <script>
-      document.querySelectorAll(".card").forEach((card) => {
-        card.style.pointerEvents = "none";
-        card.style.opacity = "0.5";
-      });
-    </script>
-    {% endif %}
+    <button id="but" onclick="afficher_vote()">Afficher les résultats</button>
+    <button id="butt" onclick="passerALaFonctionnaliteSuivante()">
+      Passer à la fonctionnalité suivante
+    </button>
 
     <script>
       function submitVote(value) {
@@ -98,22 +108,16 @@
             csrfmiddlewaretoken: "{{ csrf_token }}",
           },
           success: function (response) {
-            $("#votes-list").empty();
-            response.votes.forEach(function (vote) {
-              $("#votes-list").append(
-                `<li>${vote.joueur} a voté : <span class="hidden-value">${vote.valeur}</span></li>`
-              );
-            });
             $("#current-joueur").text(response.current_joueur);
             $("#current-fonctionnalite").text(response.current_fonctionnalite);
 
-            // Bloquer les cartes si tous les joueurs ont voté
             if (response.cartes_bloquees) {
-              document.querySelectorAll(".card").forEach((card) => {
-                card.style.pointerEvents = "none";
-                card.style.opacity = "0.5";
-              });
-              document.getElementById("but").style.display = "block";
+              $(".card").addClass("disabled-card");
+              $("#but").show();
+            }
+            if (response.fini) {
+              $("#butt").hide();
+              alert("jeux termine");
             }
           },
           error: function (error) {
@@ -127,58 +131,38 @@
           type: "GET",
           url: "{% url 'voter' %}",
           success: function (response) {
+            let message = "";
+            response.votes.forEach(function (vote) {
+              message += `${vote.joueur} a voté : ${vote.valeur}\n`;
+            });
+
             if (response.bon) {
-              // Si tous les joueurs ont voté de la même manière
-              alert("Tous les joueurs ont voté de la même manière ! ");
-              document.getElementById("butt").style.display = "block";
-
-              // Débloque les cartes pour le tour suivant
-              document.querySelectorAll(".card").forEach((card) => {
-                card.style.pointerEvents = "auto";
-                card.style.opacity = "1";
-              });
-              //debloquzer le bouton
-
-              // Met à jour les informations de la prochaine fonctionnalité et du premier joueur
-              $("#current-joueur").text(response.current_joueur);
-              $("#current-fonctionnalite").text(
-                response.current_fonctionnalite
+              alert(
+                "Tous les joueurs ont voté de la même manière !\n\n" + message
               );
-
-              // Masquer le bouton "Afficher les résultats"
-              document.getElementById("but").style.display = "none";
+              $("#butt").show();
+              if (response.fini) {
+                $("#butt").hide();
+                alert("jeux termine");
+              }
             } else {
-              // Si les votes ne sont pas unanimes, demander aux joueurs de revoter
-              alert("Les votes ne sont pas unanimes, veuillez revoter.");
-
-              // Débloquer les cartes pour permettre un nouveau vote sur la même fonctionnalité
-              document.querySelectorAll(".card").forEach((card) => {
-                card.style.pointerEvents = "auto";
-                card.style.opacity = "1";
-              });
-
-              // Mettre à jour l'interface pour rester sur la même fonctionnalité et joueur
-              $("#current-joueur").text(response.current_joueur);
-              $("#current-fonctionnalite").text(
-                response.current_fonctionnalite
+              alert(
+                "Les votes ne sont pas unanimes, veuillez revoter.\n\n" +
+                  message
               );
             }
 
-            console.log("Votes récupérés:", response.votes);
-
-            // Mettez à jour la liste des votes dans l'interface
-            $("#votes-list").empty();
-            response.votes.forEach(function (vote) {
-              $("#votes-list").append(
-                `<li>${vote.joueur} a voté : ${vote.valeur}</li>`
-              );
-            });
+            $(".card").removeClass("disabled-card");
+            $("#current-joueur").text(response.current_joueur);
+            $("#current-fonctionnalite").text(response.current_fonctionnalite);
+            $("#but").hide();
           },
           error: function (error) {
             console.error("Erreur lors de l'affichage des votes", error);
           },
         });
       }
+
       function passerALaFonctionnaliteSuivante() {
         $.ajax({
           type: "POST",
@@ -188,22 +172,27 @@
           },
           success: function (response) {
             $("#current-fonctionnalite").text(response.current_fonctionnalite);
+            $("#butt").hide();
+            if (response.suivant) {
+              // Mettre à jour la fonctionnalité actuelle
+              $("#current-fonctionnalite").text(
+                response.current_fonctionnalite
+              );
+            } else {
+              // Masquer le bouton s'il n'y a plus de fonctionnalités suivantes
+              $("#butt").hide();
+              alert("Jeu terminé, plus de fonctionnalités disponibles !");
+            }
           },
+
           error: function (error) {
-            console.error("Erreur:", error);
-            alert("Erreur lors du passage à la fonctionnalité suivante.");
+            console.error(
+              "Erreur lors du passage à la fonctionnalité suivante",
+              error
+            );
           },
         });
       }
     </script>
-
-    <button id="but" onclick="afficher_vote()">Afficher les résultats</button>
-    <button
-      id="butt"
-      style="display: none"
-      onclick="passerALaFonctionnaliteSuivante()"
-    >
-      Passer à la fonctionnalité suivante
-    </button>
   </body>
 </html>
