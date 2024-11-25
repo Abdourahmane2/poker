@@ -84,26 +84,32 @@ def voter(request):
                 )
 
                 # Récupération des votes pour cette fonctionnalité
-                votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
+                n = len(joueurs_ids)
+                print(n)
+                votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)       
+                print((votes))
                 print(len(joueurs_ids))
                 # Vérification si tous les joueurs ont voté pour cette fonctionnalité
                 if current_joueur_index == len(joueurs_ids) - 1:
-                    fini = True
+                   
                     vote_values = list(votes.values_list('valeur', flat=True))
                     request.session['cartes_bloquees'] = False
                     # Vérification si les votes sont les meme
                     bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
-
-                  
+                    print(bon)
+                    
+                    
                     if not bon:
                         request.session['cartes_bloquees'] = True # Si les votes sont différents
                         #si les votes ne sont pas bon on supprime les votes pour cette fonctionnalite
-                        vote.objects.filter(fonctionnalite = current_fonctionnalite).delete()
+                        #recuperer pour les afficher avant de les supprimer 
+                        
                     else:
                         request.session['cartes_bloquees'] = True  # Bloquer les cartes si tous ont voté et c'est unanime
                     
                     # Réinitialiser l'index des joueurs
                     current_joueur_index = 0  
+                    
 
                 else:
                     # Passer au joueur suivant si ce n'est pas le dernier
@@ -116,7 +122,7 @@ def voter(request):
 
                 # Préparer les données de votes pour l'interface
                 votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes]
-               
+                
                 # Retour Json avec les informations nécessaires
                 return JsonResponse({
                     'message': f"Vote de {current_joueur.nom} enregistré.",
@@ -125,6 +131,7 @@ def voter(request):
                     'votes': votes_data,
                     'cartes_bloquees': request.session.get('cartes_bloquees', False),
                     'bon': bon  ,
+                    
                                         
                 })
                 
@@ -136,21 +143,23 @@ def voter(request):
             return JsonResponse({"error": "Joueur non trouvé ou index incorrect"}, status=400)
 
     elif request.method == 'GET':
+        
         joueurs_ids = request.session.get('joueurs', [])
+        n = len(joueurs_ids)
         current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
         fonctionnalites = fonctionnalite.objects.all()
 
         if current_fonctionnalite_index < len(fonctionnalites):
-            current_fonctionnalite = fonctionnalites[current_fonctionnalite_index]
-            votes = vote.objects.filter(fonctionnalite=current_fonctionnalite)
-            vote_values = list(votes.values_list('valeur', flat=True))
-            bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
-
-            # Préparer les données de votes pour l'affichage
-            votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes]
-
+             current_fonctionnalite = fonctionnalites[current_fonctionnalite_index]
+             votes_queryset = vote.objects.filter(fonctionnalite=current_fonctionnalite).order_by('-created_at')[:n]
+             votes = list(reversed(votes_queryset))
+             # Vérifier si tous les votes sont identiques
+             vote_values = [v.valeur for v in votes]  # Extraire les valeurs des votes
+             bon = all(v == vote_values[0] for v in vote_values) if vote_values else False  # Vérifier l'unanimité
+             
+             votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes_queryset]
             # Retour Json avec les informations sur l'unanimité et les votes
-            return JsonResponse({
+             return JsonResponse({
                 'votes': votes_data,
                 'bon': bon,
                 'current_fonctionnalite': current_fonctionnalite.titre,
@@ -168,7 +177,7 @@ def voter(request):
 def passer_a_la_suivante(request):
     current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
     fonctionnalites = fonctionnalite.objects.all()
-
+    
     if current_fonctionnalite_index < len(fonctionnalites)-1:
         request.session['current_fonctionnalite_index'] += 1
         current_fonctionnalite = fonctionnalites[request.session['current_fonctionnalite_index']]
@@ -181,4 +190,4 @@ def passer_a_la_suivante(request):
     else:
         return JsonResponse(
             { "suivant" : False}
-        )
+        ) 

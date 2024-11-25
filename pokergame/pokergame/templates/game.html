@@ -126,44 +126,66 @@
         });
       }
 
-      function afficher_vote() {
-        $.ajax({
-          type: "GET",
-          url: "{% url 'voter' %}",
-          success: function (response) {
-            let message = "";
-            response.votes.forEach(function (vote) {
-              message += `${vote.joueur} a voté : ${vote.valeur}\n`;
-            });
+      let tour = 1;
+let historiqueVotes = "";
+let currentFonctionnalite = "";
 
-            if (response.bon) {
-              alert(
-                "Tous les joueurs ont voté de la même manière !\n\n" + message
-              );
-              $("#butt").show();
-              if (response.fini) {
-                $("#butt").hide();
-                alert("jeux termine");
-              }
-            } else {
-              alert(
-                "Les votes ne sont pas unanimes, veuillez revoter.\n\n" +
-                  message
-              );
+function afficher_vote() {
+    $.ajax({
+        type: "GET",
+        url: "{% url 'voter' %}",
+        success: function (response) {
+            // Vérifier si la fonctionnalité a changé
+            if (response.current_fonctionnalite !== currentFonctionnalite) {
+                currentFonctionnalite = response.current_fonctionnalite;
+                historiqueVotes = ""; // Réinitialiser l'historique
+                tour = 1; // Réinitialiser le numéro de tour
             }
 
-            $(".card").removeClass("disabled-card");
+            let message = `Fonctionnalité : ${response.current_fonctionnalite}\t Tour ${tour}:\n`;
+            response.votes.forEach(function (vote, index) {
+                message += `${vote.joueur} a voté : ${vote.valeur}\n`;
+            });
+
+            // Ajouter les votes du tour actuel à l'historique
+            historiqueVotes += message + "---------------------\n";
+
+            console.log(response.bon);
+            if (response.bon) {
+                alert("Tous les joueurs ont voté de la même manière !\n\n" + historiqueVotes);
+                $(".card").addClass("disabled-card");
+                $("#butt").show();
+                if (response.fini) {
+                    $("#butt").hide();
+                    alert("Jeu terminé");
+                }
+            } else {
+                alert("Les votes ne sont pas unanimes, veuillez revoter.\n\n" + historiqueVotes);
+                $(".card").removeClass("disabled-card");
+            }
+
+            // Mettre à jour les informations de l'interface
             $("#current-joueur").text(response.current_joueur);
             $("#current-fonctionnalite").text(response.current_fonctionnalite);
-            $("#but").hide();
-          },
-          error: function (error) {
-            console.error("Erreur lors de l'affichage des votes", error);
-          },
-        });
-      }
 
+            // Mettre à jour et afficher le tour actuel
+            $("#tour").text(`Tour ${tour}`);
+
+            // Incrémenter le numéro de tour
+            tour++;
+
+            // Masquer le bouton d'action
+            $("#but").hide();
+        },
+        error: function (error) {
+            console.error("Erreur lors de l'affichage des votes", error);
+        },
+    });
+}
+      
+      
       function passerALaFonctionnaliteSuivante() {
+        $(".card").removeClass("disabled-card");
         $.ajax({
           type: "POST",
           url: "{% url 'passer_a_la_suivante' %}",
@@ -181,6 +203,8 @@
             } else {
               // Masquer le bouton s'il n'y a plus de fonctionnalités suivantes
               $("#butt").hide();
+              $(".card").addClass("disabled-card");
+              
               alert("Jeu terminé, plus de fonctionnalités disponibles !");
             }
           },

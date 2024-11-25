@@ -18,6 +18,7 @@ class vote(models.Model):
     joueur = models.ForeignKey(joueur, on_delete=models.CASCADE)
     fonctionnalite = models.ForeignKey(fonctionnalite, on_delete=models.CASCADE)
     valeur = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.joueur.nom}, {self.valeur}, {self.fonctionnalite.titre}"
