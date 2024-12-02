@@ -1,5 +1,6 @@
-from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.shortcuts import render
+from django.http import HttpResponse, JsonResponse
+
 from .models import joueur, fonctionnalite, vote
 import json
 from django.views.decorators.http import require_http_methods
@@ -13,6 +14,7 @@ def start_game(request):
     joueur.objects.all().delete()  # Supprime tous les joueurs existants pour un nouveau jeu
 
     if request.method == 'POST':
+        mode = request.POST.get('mode')
         # Récupération et nettoyage des noms des joueurs
         noms = request.POST.get('player_names').split(',')
         nom_joueurs = [name.strip() for name in noms]
@@ -36,8 +38,9 @@ def start_game(request):
                         titre=fonct['title'],
                         description=fonct['description']
                     )
-
+        
         # Initialisation de la session
+        request.session['mode'] = mode
         request.session['joueurs'] = [j.id for j in joueurs]
         request.session['current_joueur_index'] = 0
         request.session['current_fonctionnalite_index'] = 0
@@ -46,7 +49,8 @@ def start_game(request):
             'joueurs': joueurs,
             'fonctionnalites': fonctionnalite.objects.all(),
             'current_joueur': joueurs[0] if joueurs else None,
-            'current_fonctionnalite': fonctionnalite.objects.first()
+            'current_fonctionnalite': fonctionnalite.objects.first() ,
+            'mode' : mode
         })
 
     return render(request, 'index.html')
@@ -57,6 +61,7 @@ def voter(request):
    
     votes_data = []
     bon = False
+    moyenne = 0 
 
     if request.method == 'POST':
         # Récupération des données nécessaires depuis la session
@@ -94,9 +99,14 @@ def voter(request):
                    
                     vote_values = list(votes.values_list('valeur', flat=True))
                     request.session['cartes_bloquees'] = False
-                    # Vérification si les votes sont les meme
-                    bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
-                    print(bon)
+                    # Vérification si les votes sont les meme pour le mode unanime
+                    if request.POST.get('mode') == 'unanimite':
+                        bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
+                        print(bon)
+                    else :
+                        #transformer les votes str en int pour calculer la moyenne
+                        vote_values = [int(v) for v in vote_values]  
+                        moyenne = sum(vote_values) / n
                     
                     
                     if not bon:
@@ -131,6 +141,8 @@ def voter(request):
                     'votes': votes_data,
                     'cartes_bloquees': request.session.get('cartes_bloquees', False),
                     'bon': bon  ,
+                    'moyenne' : moyenne ,
+                    'mode' : request.session.get('mode')
                     
                                         
                 })
@@ -143,7 +155,7 @@ def voter(request):
             return JsonResponse({"error": "Joueur non trouvé ou index incorrect"}, status=400)
 
     elif request.method == 'GET':
-        
+        print(request.session.get('mode'))
         joueurs_ids = request.session.get('joueurs', [])
         n = len(joueurs_ids)
         current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
@@ -155,15 +167,24 @@ def voter(request):
              votes = list(reversed(votes_queryset))
              # Vérifier si tous les votes sont identiques
              vote_values = [v.valeur for v in votes]  # Extraire les valeurs des votes
-             bon = all(v == vote_values[0] for v in vote_values) if vote_values else False  # Vérifier l'unanimité
-             
+             if request.POST.get('mode') == 'unanime':
+                bon = all(v == vote_values[0] for v in vote_values) if vote_values else False  # Vérifier l'unanimité
+             else :
+                 #transformer les votes str en int pour calculer la moyenne
+                    vote_values = [int(v) for v in vote_values]
+                    moyenne = sum(vote_values) / n   
+                
+                  
              votes_data = [{'joueur': v.joueur.nom, 'valeur': v.valeur} for v in votes_queryset]
             # Retour Json avec les informations sur l'unanimité et les votes
              return JsonResponse({
                 'votes': votes_data,
                 'bon': bon,
                 'current_fonctionnalite': current_fonctionnalite.titre,
+                 'moyenne' : moyenne ,
+                 'mode' : request.session.get('mode')
             })
+            
         else:
             
             return JsonResponse({"error": "jeu termine"
@@ -188,6 +209,51 @@ def passer_a_la_suivante(request):
             'suivant'  :True
         })
     else:
+        #telecharger les donnees
+        telecharger_donne(request)
         return JsonResponse(
             { "suivant" : False}
         ) 
+@require_http_methods(["POST"])       
+def revenir_menu_principal(request):
+    return render(request, 'index.html')  
+
+#telecharger les donne format json 
+def telecharger_donne(request):
+    votes = vote.objects.select_related('fonctionnalite', 'joueur').all()
+    fonctionnalites_votes = {}
+    
+    # Regrouper les votes par fonctionnalité
+    for v in votes:
+        fonction_id = v.fonctionnalite.id
+        if fonction_id not in fonctionnalites_votes:
+            fonctionnalites_votes[fonction_id] = {
+                "fonctionnalite": v.fonctionnalite,
+                "valeurs": []
+            }
+        fonctionnalites_votes[fonction_id]["valeurs"].append(v.valeur)
+    
+    # Analyser les votes pour chaque fonctionnalité
+    fichier = []
+    for fonction_id, data in fonctionnalites_votes.items():
+        valeurs = data["valeurs"]
+        fonctionnalite = data["fonctionnalite"]
+        
+        # Vérifier si toutes les valeurs sont identiques
+        if all(val == valeurs[0] for val in valeurs):
+            fichier.append({
+                "id": fonctionnalite.id,
+                "title": fonctionnalite.titre,
+                "description": fonctionnalite.description,
+                "valeur": valeurs[0], 
+            })
+    # Préparer la réponse HTTP pour le téléchargement
+    response = HttpResponse(json.dumps(fichier,), content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="votes.json"'
+    return response
+    
+   
+   
+  
+
+

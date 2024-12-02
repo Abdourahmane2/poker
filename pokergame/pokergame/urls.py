@@ -24,6 +24,8 @@ urlpatterns = [
     path('start_game' , views.start_game , name='start_game') ,
     path('voter/', views.voter, name='voter'),
     path('passer_a_la_suivante/', views.passer_a_la_suivante, name='passer_a_la_suivante'),
+    path('', views.revenir_menu_principal, name='revenir_menu_principal'),
+    path('telecharger-donnees/', views.telecharger_donne, name='telecharger_donnees'),
     
     
 ]
