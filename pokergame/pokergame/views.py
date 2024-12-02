@@ -100,10 +100,12 @@ def voter(request):
                     vote_values = list(votes.values_list('valeur', flat=True))
                     request.session['cartes_bloquees'] = False
                     # Vérification si les votes sont les meme pour le mode unanime
-                    if request.POST.get('mode') == 'unanimite':
+                    if request.session.get('mode') == 'unanime':
+                        print(vote_values)
                         bon = all(v == vote_values[0] for v in vote_values) if vote_values else False
                         print(bon)
                     else :
+                        print(request.session.get('mode'))
                         #transformer les votes str en int pour calculer la moyenne
                         vote_values = [int(v) for v in vote_values]  
                         moyenne = sum(vote_values) / n
@@ -157,7 +159,7 @@ def voter(request):
     elif request.method == 'GET':
         print(request.session.get('mode'))
         joueurs_ids = request.session.get('joueurs', [])
-        n = len(joueurs_ids)
+        n = len(joueurs_ids) 
         current_fonctionnalite_index = request.session.get('current_fonctionnalite_index', 0)
         fonctionnalites = fonctionnalite.objects.all()
 
@@ -166,9 +168,24 @@ def voter(request):
              votes_queryset = vote.objects.filter(fonctionnalite=current_fonctionnalite).order_by('-created_at')[:n]
              votes = list(reversed(votes_queryset))
              # Vérifier si tous les votes sont identiques
-             vote_values = [v.valeur for v in votes]  # Extraire les valeurs des votes
-             if request.POST.get('mode') == 'unanime':
+             vote_values = [v.valeur for v in votes]  # Extraire les valeurs des votes 
+             
+             #verfifier si ils ont vote cafe
+             cafe =  all(v == 'cafe' for v in vote_values) if vote_values else False
+             if cafe:
+                    request.session['cafe_mode'] = True  
+                    telecharger_donne(request)
+                    return JsonResponse({
+                        'votes': votes_data,
+                        'bon': bon,
+                        'current_fonctionnalite': current_fonctionnalite.titre,
+                        'cafe_mode': True,  
+                    })
+                         
+             
+             if request.session.get('mode') == 'unanime':
                 bon = all(v == vote_values[0] for v in vote_values) if vote_values else False  # Vérifier l'unanimité
+                print(bon) 
              else :
                  #transformer les votes str en int pour calculer la moyenne
                     vote_values = [int(v) for v in vote_values]
@@ -181,8 +198,9 @@ def voter(request):
                 'votes': votes_data,
                 'bon': bon,
                 'current_fonctionnalite': current_fonctionnalite.titre,
-                 'moyenne' : moyenne ,
-                 'mode' : request.session.get('mode')
+                'moyenne': moyenne,
+                'mode': request.session.get('mode'),
+                'cafe_mode': False,  
             })
             
         else:
