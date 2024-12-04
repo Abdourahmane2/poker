@@ -117,7 +117,9 @@
     </button>
     <button id="recommencer" onclick="revenir_menu_principale()">
       Menu principal
-    </button>
+    </button> 
+    <button id="reprendre" style="display:none;" onclick="reprendrePartie()">Reprendre la partie</button>
+
 
     <script>
       function submitVote(value) {
@@ -156,20 +158,7 @@
           type: "GET",
           url: "{% url 'voter' %}",
           success: function (response) { 
-            if (response.cafe_mode) {
-              alert("Tous les joueurs ont voté 'Café'. un fichier sera telecharge au cas ou vous voulez reprendre une partie.");
-              const url = "/telecharger-donnees/"; // Endpoint pour télécharger
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = 'votes.json';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-      
-              // Afficher le bouton "Reprendre partie"
-              $("#recommencer").show();
-              $(".card").addClass("disabled-card"); // Désactiver les cartes pendant cette pause
-            } 
+           
             // Vérifier si la fonctionnalité a changé
             if (response.current_fonctionnalite !== currentFonctionnalite) {
               currentFonctionnalite = response.current_fonctionnalite;

@@ -171,16 +171,7 @@ def voter(request):
              vote_values = [v.valeur for v in votes]  # Extraire les valeurs des votes 
              
              #verfifier si ils ont vote cafe
-             cafe =  all(v == 'cafe' for v in vote_values) if vote_values else False
-             if cafe:
-                    request.session['cafe_mode'] = True  
-                    telecharger_donne(request)
-                    return JsonResponse({
-                        'votes': votes_data,
-                        'bon': bon,
-                        'current_fonctionnalite': current_fonctionnalite.titre,
-                        'cafe_mode': True,  
-                    })
+            
                          
              
              if request.session.get('mode') == 'unanime':
