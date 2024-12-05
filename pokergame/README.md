@@ -2,6 +2,19 @@
 
 ## Description
 objectif de l'application est de permettre à des joueurs de faire une partie de planning poker
+Avec cette application les menbres de l'application peuvent :
+ -  Participer a une session  
+ -  Estimer  la complexite des fonctionnalites 
+  - Importer un backlog sous forme de fichier JSON pour le traiter directement dans l'application.
+ -  Exporter les résultats des votes sous format JSON pour une analyse ou une documentation ultérieure.
+
+
+## Technologies utilisées 
+ - Backend : Django (Framework Python)
+ - Frontend : HTML/CSS (intégré dans les templates Django)
+ - Base de données : SQLite (ou autre selon configuration)
+ - JSON : Pour l'import/export de données de backlog et de résultats.
+
 
 ## Installation
 Pour installer ce projet, suivez les étapes ci-dessous :
@@ -24,7 +37,7 @@ python manage.py runserver
 ## Fonctionnalités
 - remplir le formulaire (choix du nombre de joeurs choix des noms , mode de jeu et mettre un fichier format json avec la liste des fonctionnlites  )
 - chaque joeurn chosi a tour de role la carte q'ui veut associer a une fonctionnalite en fonction du mode de jeu choisi on passe ou pas a la fonctionnalite suivante 
-- si le jei est termine un fichier sera telecharge 
+- si le jeu est termine un fichier sera telecharge 
 
 ## Contribuer
 Les contributions sont les bienvenues ! Pour contribuer :
