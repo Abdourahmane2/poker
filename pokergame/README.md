@@ -1,10 +1,10 @@
 # PokerGame
 
 ## Description
-objectif de l'application est de permettre à des joueurs de faire une partie de planning poker
-Avec cette application les menbres de l'application peuvent :
- -  Participer a une session  
- -  Estimer  la complexite des fonctionnalites 
+L'objectif de l'application est de permettre à des joueurs de faire une partie de planning poker
+Avec cette application les membres de l'application peuvent :
+ -  Participer à une session  
+ -  Estimer  la complexité des fonctionnalités 
   - Importer un backlog sous forme de fichier JSON pour le traiter directement dans l'application.
  -  Exporter les résultats des votes sous format JSON pour une analyse ou une documentation ultérieure.
 
@@ -35,9 +35,9 @@ python manage.py runserver
 ```
 
 ## Fonctionnalités
-- remplir le formulaire (choix du nombre de joeurs choix des noms , mode de jeu et mettre un fichier format json avec la liste des fonctionnlites  )
-- chaque joeurn chosi a tour de role la carte q'ui veut associer a une fonctionnalite en fonction du mode de jeu choisi on passe ou pas a la fonctionnalite suivante 
-- si le jeu est termine un fichier sera telecharge 
+- remplir le formulaire (choix du nombre de joueurs, choix des noms , mode de jeu et mettre un fichier format json avec la liste des fonctionnlites)
+- chaque joueur choisi à tour de rôle la carte qu'il veut associer à une fonctionnalité, en fonction du mode de jeu choisi, on passe (ou pas) à la fonctionnalité suivante 
+- si le jeu est terminé un fichier sera téléchargé 
 
 ## Contribuer
 Les contributions sont les bienvenues ! Pour contribuer :
