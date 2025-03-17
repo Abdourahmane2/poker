@@ -12,7 +12,7 @@ Avec cette application les membres de l'application peuvent :
 ## Technologies utilisées 
  - Backend : Django (Framework Python)
  - Frontend : HTML/CSS (intégré dans les templates Django)
- - Base de données : SQLite (ou autre selon configuration)
+ - Base de données : SQLite 
  - JSON : Pour l'import/export de données de backlog et de résultats.
 
 
